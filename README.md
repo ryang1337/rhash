@@ -71,6 +71,19 @@
 (rhash-ref r7 b7) ; expected: "apple"
 (solve (assert (equal? "apple" (rhash-ref r7 2)))) ; expected: b7=2
 
+; Key:    Symbolic Constant
+; Value:  Symbolic Expression (union)
+(clear-vc!)
+(define r8 (make-hash 10))
+(define-symbolic b8 integer?)
+(define l8 (list 1 2 3))
+(define v8 (list-ref l8 b8))
+(rhash-set r8 b8 v8)
+(solve (assert (equal? 3 (rhash-ref 2)))) ; expected: b8=2
+(solve (assert (equal? 2 (rhash-ref 2)))) ; expected: unsat
+
+
+
 ; rhash Size Expansion
 (clear-vc!)
 (define r8 (make-rhash 4))
