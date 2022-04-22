@@ -93,13 +93,13 @@
 
 ## Current Issues and Potential Solutions
 
-1. Issue: Cannot create key to be a symbolic constant
+1. Issue: Cannot create key to be a symbolic constant  
     Solution: Currently testing solutions, possibly use auxilliary data structure to keep track of only symbolic
     constants
  
-2. Issue: No functionality to automatically expand rhash size
+2. Issue: No functionality to automatically expand rhash size   
     Solution: When calling rhash-set, check if new key-value pair will expand rhash past its size. If so, copy over all
     key-value pairs into a new larger rhash and add the new key-value pair there and return the new larger rhash.
 
-3. Issue: Updating the same symbolic key multiple times results in long verification conditions. 
+3. Issue: Updating the same symbolic key multiple times results in long verification conditions   
     Solution: Currently ignoring
