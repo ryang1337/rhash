@@ -159,11 +159,26 @@ v -> (union [(> d 0) "banana"] [else "cat"])
 ### Symbolic Structs
 
 ```lisp
-; Scenario 17: Inserting a Symbolic Struct Key
+; Scenario 17: Inserting a Symbolic Struct with Symbolic Constant Field as a Key
 r -> #rhash()
-k -> struct s(integer? string)
+k -> struct s(b "apple") ; b is symbolic integer
 v -> 1
-(rhash-set! r k v) -> #rhash( ((s integer? string) . 1) )
+(rhash-set! r k v) -> #rhash( ((s b "apple") . 1) )
+
+; Scenario 18: Inserting a Symbolic Struct with Symbolic Union Field as a Key
+r -> #rhash()
+k -> struct s((union [(> b 0) 2] [else 3]) "apple")
+v -> 1
+; (rhash-set! r k v) -> #rhash( (union [(> b 0) (s 2 "apple")] [else (s 3 "apple")] . 1) )
+(rhash-set! r k v) -> #rhash( ((s 2 "apple") . (ite (> b 0) 1 rvoid))
+                              ((s 3 "apple") . (ite (! (> b 0)) 1 rvoid)) )
+
+; Scenario 19: Querying a Symbolic Struct with Symbolic Union Field as a Key
+r -> #rhash( (union [(> b 0) (s 2 "apple")] [else (s 3 "apple")] . 1) )
+k -> (union [(> c 0) (s 2 "apple")] [else (s 3 "apple)])
+(rhash-ref r k) -> (union [(|| (&& (> b 0) (> c 0))
+                               (&& (! (> b 0)) (! (> c 0)))) 1]
+                          [else rvoid])
 ```
 
 ### Other 'Trivial' Scenarios
@@ -171,11 +186,7 @@ v -> 1
 Having `ite` keys is similar to symbolic `union`s and I believe they behave the same way, so I will not repeat both cases.  
 
 Having symbolic constants as the value is similar to concrete constants as values. If they are referenced using
-`rhash-ref`, then the symbolic constant will just be returned
-
-When a symbolic struct is used as a key, its behavior is similar to when a concrete value is used as a key, since the
-"symbolic" part of the struct is wrapped by the struct and thus is separated from any queries involving the struct. Of
-course, adding the symbolic struct as a key in the first place is another issue and one that is not trivial.
+`rhash-ref`, then the symbolic constant will just be returned.  
 
 ## Desired Functionality
 ```
