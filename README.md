@@ -5,7 +5,7 @@
 **Note:** The `union` notation is abused in the following examples. According to the Rosette Guide, "the guards in a
 symbolic union are disjoint: only one of them can ever be true." However, I choose to use it as an "if-else if-else"
 operator with short circuiting (i.e. if the first guard is true, then ignore the rest of the guards, however they might
-        also be true) This just makes notation more concise and readable
+        also be true). This just makes notation more concise and readable
 
 ### Concrete Key
 
@@ -159,15 +159,23 @@ v -> (union [(> d 0) "banana"] [else "cat"])
 ### Symbolic Structs
 
 ```lisp
-
+; Scenario 17: Inserting a Symbolic Struct Key
+r -> #rhash()
+k -> struct s(integer? string)
+v -> 1
+(rhash-set! r k v) -> #rhash( ((s integer? string) . 1) )
 ```
 
 ### Other 'Trivial' Scenarios
 
-Having `ite` keys is similar to symbolic `union`s and I believe they behave the same way, so I will not repeat them.  
+Having `ite` keys is similar to symbolic `union`s and I believe they behave the same way, so I will not repeat both cases.  
 
 Having symbolic constants as the value is similar to concrete constants as values. If they are referenced using
 `rhash-ref`, then the symbolic constant will just be returned
+
+When a symbolic struct is used as a key, its behavior is similar to when a concrete value is used as a key, since the
+"symbolic" part of the struct is wrapped by the struct and thus is separated from any queries involving the struct. Of
+course, adding the symbolic struct as a key in the first place is another issue and one that is not trivial.
 
 ## Desired Functionality
 ```
