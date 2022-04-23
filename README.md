@@ -2,97 +2,88 @@
 
 ## Expected Behaviors
 
+### Concrete Key
+
 ```lisp
-; Key:    Concrete
-; Value:  Concrete
-(define r0 (make-rhash 10))
-(rhash-set! r0 "apple" 1)
-(rhash-set! r0 42 1337)
-(rhash-ref r0 "apple") ; expected: 1
-
-; Key:    Symbolic Expression
-; Value:  Concrete
-(clear-vc!)
-(define r1 (make-rhash 10))
-(define-symbolic b1 integer?)
-(if (> b1 0)
-    (rhash-set! r1 "apple" 1)
-    (rhash-set! r1 "banana" 2))
-(rhash-ref r1 "banana") ; expected: (union [(> b 0) zvoid] [(! (> b 0)) 2])
-
-; Key:    Symbolic Expression (union)
-; Value:  Concrete
-(clear-vc!)
-(define r2 (make-rhash 10))
-(define-symbolic b2 integer?)
-(define l2 (list 1 2))
-(define k2 (list-ref l2 b2))
-(rhash-set! r2 k2 "apple")
-(rhash-ref r2 2) ; expected: (union [(= 0 b) 2] [(= 1 b) zvoid])
-(solve (assert (rhash-has-key? z2 2))) ; expected: b2=1
-
-; Key:    Symbolic Expression (union)
-; Value:  Symbolic Expression
-(clear-vc!)
-(define r4 (make-rhash 10))
-(define-symbolic b4 integer?)
-(define l4 (list "apple" "banana" "cat" "dog"))
-(define m4 (list 999 888 777 666))
-(define k4 (list-ref l4 b4))
-(define v4 (list-ref m4 b4))
-(rhash-set! r4 k4 v4)
-(printf "4-0: ~v\n" (solve (assert (equal? 777 (rhash-ref r4 "banana"))))) ; expected: unsat
-(printf "4-1: ~v\n" (solve (assert (equal? 888 (rhash-ref r4 "banana"))))) ; expected: b4=1
-
-; Symbolic Execution + Update
-(clear-vc!)
-(define r6 (make-rhash 10))
-(define-symbolic b6 integer?)
-(if (> b6 29)
-	(rhash-set! r6 "uurr" 87)
-	(rhash-set! r6 "jjkk" 99)
-)
-(if (< b6 77)
-	(rhash-set! r6 "uurr" 101)
-	(rhash-set! r6 "jjkk" 202)
-)
-(printf "6-0: ~v\n" (solve (assert (equal? 101 (rhash-ref r6 "uurr"))))) ; expected: 29<b6<77
-; jjkk --- 29 --- uurr
-; uurr --- 77 --- jjkk
-(printf "6-1: ~v\n" (solve (assert (not (rhash-has-key? r6 "uurr"))))) ; expected: unsat, because b needs to be: b<=29 and b>=77
-(printf "6-2: ~v\n" (solve (assert (rhash-has-key? r6 "uurr")))) ; expected: 29<b<77
-
-; Key:    Symbolic Constant
-; Value:  Concrete
-(clear-vc!)
-(define r7 (make-rhash 10))
-(define-symbolic b7 integer?)
-(rhash-set! r7 b7 "apple")
-(rhash-ref r7 b7) ; expected: "apple"
-(solve (assert (equal? "apple" (rhash-ref r7 2)))) ; expected: b7=2
-
-; Key:    Symbolic Constant
-; Value:  Symbolic Expression (union)
-(clear-vc!)
-(define r8 (make-hash 10))
-(define-symbolic b8 integer?)
-(define l8 (list 1 2 3))
-(define v8 (list-ref l8 b8))
-(rhash-set r8 b8 v8)
-(solve (assert (equal? 3 (rhash-ref 2)))) ; expected: b8=2
-(solve (assert (equal? 2 (rhash-ref 2)))) ; expected: unsat
-
-
-
-; rhash Size Expansion
-(clear-vc!)
-(define r8 (make-rhash 4))
-(define l8 (list 1 2 3 4 5))
-(define-symbolic b8 integer?)
-(define k8 (list-ref l8 b8))
-(rhash-set r8 k8 "apple") ; expected: no fail
-
+; Scenario 1: Querying a Conrete Value with Concrete Key
+r -> #rhash(("apple" . 1) ("banana" . 2))
+(rhash-ref r "apple") -> 1
 ```
+
+### Symbolic Union Keys / Values
+
+```lisp
+; Scenario 2: Inserting a Symbolic Union Key
+r -> #rhash()
+k -> (union [(< 0 b) "apple"] [(! (< 0 b)) "banana"])
+v -> 2
+(rhash-set! r k v) -> #rhash( ((union [(< 0 b) "apple"] [(! (< 0 b)) "banana"]) . 3) )
+
+; Scenario 3: Querying a Concrete Value With Concrete Key
+;             Where rhash has Symbolic Union Key
+r -> #rhash( ((union [(< 0 b) "apple"] [(! (< 0 b)) "banana"]) . 3) )
+k -> "apple"
+(rhash-ref r k) -> (union [(< 0 b) 3] [else rvoid])
+
+; Scenario 4: Querying a Concrete Value with Symbolic Union Key
+;             Where rhash Has Concrete Key
+r -> #rhash(("apple" . 1) ("banana" . 2))
+k -> (union [(> c 10) "apple"] [else "banana"])
+(rhash-ref r k) -> (union [(> c 10) 1] [else 2])
+
+; Scenario 5: Querying a Concrete Value With Symbolic Union Key
+;             Where rhash Has Symbolic Union Key
+r -> #rhash( ((union [(< 0 b) "apple"] [(! (< 0 b)) "banana"]) . 3) )
+k -> (union [(> c 10) "apple"] [else "banana"])
+(rhash-ref r k) -> (union [ (|| (&& (> c 10) (< 0 b)) (&& (! (> c 10)) (! (< 0 b)))) 3 ] [ else rvoid ])
+
+; Scenario 6: Querying a Symbolic Union Value With Symbolic Union Key
+;             Where rhash Has Symbolic Union Key
+r -> #rhash( ((union [(< 0 b) "apple"] [(! (< 0 b)) "banana"]) . 
+               (union [(> c 10) "cat"] [else "dog"])) )
+k -> (union [(< c 15) "apple"] [else "banana"])
+(rhash-ref r k) -> (union [(&& (> c 10) (< 0 b) (< c 15)) "cat"] [(&& (! (> c 10)) (< 0 b)) "dog"]
+        [(&& (! (< c 15)) (! (> c 10)) (! (> c 10))) "dog"] [(&& (! (< c 15)) (! (< 0 b))) "cat"]
+        [else rvoid])
+```
+
+### Symbolic Constants
+
+```lisp
+; Scenario 7: Inserting a Symbolic Constant Key and Concrete Value
+r -> #rhash()
+k -> (define-symbolic b integer?)
+v -> 2
+(rhash-set! r k v) -> #rhash( (b . 2) )
+
+; Scenario 8: Querying a Symbolic Constant Key and Concrete Value
+r -> #rhash( (b . 2) )
+k -> b
+(rhash-ref r k) -> 2
+
+; Scenario 9: Querying a Symbolic Constant Key and Concrete Value
+;             When rhash Has Symbolic Union Key
+r -> #rhash( ((ite (> b 0) 2 3) . "apple") )
+k -> c
+(rhash-ref r k) -> (union [(|| (&& (= c 2) (> b 0)) (&& (= c 3) (! (> b 0)))) "apple"] [else rvoid])
+
+; Scenario 10: Querying a Symbolic Union Key and Symbolic Union Value
+;              When rhash Has Symbolic Constant
+r -> #rhash( (b . 5) )
+k -> (ite (> b 0) 2 3)
+(rhash-ref r k) -> (ite* (⊢ (= b 2) 5) (⊢ (! (= b 2)) rvoid))
+
+r -> #rhash( (b . 5) )
+k -> (ite (> b 0) -1 3)
+(rhash-ref r k) -> rvoid
+```
+
+### Other 'Trivial' Scenarios
+
+Having `ite` keys is similar to symbolic unions and I believe they behave the same way, so I will not repeat them.  
+
+Having symbolic constants as the value is similar to concrete constants as values. If they are referenced using
+`rhash-ref`, then the symbolic constant will just be returned
 
 ## Desired Functionality
 ```
