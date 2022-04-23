@@ -2,6 +2,11 @@
 
 ## Expected Behaviors
 
+**Note:** The `union` notation is abused in the following examples. According to the Rosette Guide, "the guards in a
+symbolic union are disjoint: only one of them can ever be true." However, I choose to use it as an "if-else if-else"
+operator with short circuiting (i.e. if the first guard is true, then ignore the rest of the guards, however they might
+        also be true) This just makes notation more concise and readable
+
 ### Concrete Key
 
 ```lisp
@@ -35,39 +40,58 @@ k -> (union [(> c 10) "apple"] [else "banana"])
 ;             Where rhash Has Symbolic Union Key
 r -> #rhash( ((union [(< 0 b) "apple"] [(! (< 0 b)) "banana"]) . 3) )
 k -> (union [(> c 10) "apple"] [else "banana"])
-(rhash-ref r k) -> (union [ (|| (&& (> c 10) (< 0 b)) (&& (! (> c 10)) (! (< 0 b)))) 3 ] [ else rvoid ])
+(rhash-ref r k) -> (union [(|| (&& (> c 10) (< 0 b))
+                               (&& (! (> c 10)) (! (< 0 b)))) 3]
+                          [else rvoid])
 
 ; Scenario 6: Querying a Symbolic Union Value With Symbolic Union Key
 ;             Where rhash Has Symbolic Union Key
 r -> #rhash( ((union [(< 0 b) "apple"] [(! (< 0 b)) "banana"]) . 
                (union [(> c 10) "cat"] [else "dog"])) )
 k -> (union [(< c 15) "apple"] [else "banana"])
-(rhash-ref r k) -> (union [(&& (> c 10) (< 0 b) (< c 15)) "cat"] [(&& (! (> c 10)) (< 0 b)) "dog"]
-        [(&& (! (< c 15)) (! (> c 10)) (! (> c 10))) "dog"] [(&& (! (< c 15)) (! (< 0 b))) "cat"]
-        [else rvoid])
+(rhash-ref r k) -> (union [(|| (&& (> c 10) (< 0 b) (< c 15))  
+                               (&& (! (< c 15)) (! (< 0 b)))) "cat"]
+                          [(|| (&& (! (> c 10)) (< 0 b))
+                               (&& (! (< c 15)) (! (> c 10)) (! (> c 10)))) "dog"]
+                          [else rvoid])
+
+; Scenario 7: Updating rhash With Symbolic Union Key-Symbolic Union Value Pair
+;             When rhash Has Symbolic Union Key
+r -> #rhash( ((union [(< 0 b) "apple"] [else "banana"]) . 3) )
+k -> (union [(> c 0) "apple"] [else "cat"])
+v -> (ite (> d 0) 4 5)
+(rhash-set! r k v) -> #rhash( ("apple" . (union [(&& (> b 0) (> c 0) (> d 0)) 4]
+                                                [(&& (> b 0) (> c 0) (! (> d 0))) 5]
+                                                [(> b 0) 3]
+                                                [else rvoid]))
+                              ("banana" . (union [(! (> b 0)) 3]
+                                                 [else rvoid]))
+                              ("cat" . (union [(&& (! (> c 0)) (> d 0)) 4]
+                                              [(&& (! (> c 0)) (! (> d 0))) 5]
+                                              [else rvoid])) )
 ```
 
 ### Symbolic Constants
 
 ```lisp
-; Scenario 7: Inserting a Symbolic Constant Key and Concrete Value
+; Scenario 8: Inserting a Symbolic Constant Key and Concrete Value
 r -> #rhash()
 k -> (define-symbolic b integer?)
 v -> 2
 (rhash-set! r k v) -> #rhash( (b . 2) )
 
-; Scenario 8: Querying a Symbolic Constant Key and Concrete Value
+; Scenario 9: Querying a Symbolic Constant Key and Concrete Value
 r -> #rhash( (b . 2) )
 k -> b
 (rhash-ref r k) -> 2
 
-; Scenario 9: Querying a Symbolic Constant Key and Concrete Value
+; Scenario 10: Querying a Symbolic Constant Key and Concrete Value
 ;             When rhash Has Symbolic Union Key
 r -> #rhash( ((ite (> b 0) 2 3) . "apple") )
 k -> c
 (rhash-ref r k) -> (union [(|| (&& (= c 2) (> b 0)) (&& (= c 3) (! (> b 0)))) "apple"] [else rvoid])
 
-; Scenario 10: Querying a Symbolic Union Key and Concrete Value
+; Scenario 11: Querying a Symbolic Union Key and Concrete Value
 ;              When rhash Has Symbolic Constant
 r -> #rhash( (b . 5) )
 k -> (ite (> b 0) 2 3)
@@ -77,16 +101,70 @@ r -> #rhash( (b . 5) )
 k -> (ite (> b 0) -1 3)
 (rhash-ref r k) -> rvoid
 
-; Scenario 11: Querying a Symbolic Union Key with Symbolic Constant Evaluation and Concrete Value
-;.             When rhash Has Symbolic Constant
+; Scenario 12: Querying a Symbolic Union Key with Symbolic Constant Evaluation and Concrete Value
+;              When rhash Has Symbolic Constant Key
 r -> #rhash( (b . 5) )
 k -> (union [(> b 0) c] [else d])
-(rhash-ref r k) -> (union)
+(rhash-ref r k) -> (union [(|| (&& (> b 0) (= c b))
+                               (&& (! (> b 0)) (= d b))) 5]
+                          [else rvoid])
+
+; Scenario 13: Updating rhash With Concrete Key-Value Pair
+;              When rhash Has Symbolic Constant Key
+r -> #rhash( (b . 5) )
+k -> 2
+v -> 3
+(rhash-set! r k v) -> #rhash( (b . (ite (= b 2) 3 5)) 
+                              (2 . 3) )
+
+; Scenario 14: Updating rhash With Concrete Key-Symbolic Union Value Pair
+;              When rhash Has Symbolic Constant Key
+r -> #rhash( (b . "apple") )
+k -> 2
+v -> (union [(> c 0) "banana"] [else "cat"])
+(rhash-set! r k v) -> #rhash( (b . (union [(&& (= b 2) (> c 0)) "banana"]
+                                          [(&& (= b 2) (! (> c 0))) "cat"]
+                                          [else "apple"]))
+                              (2 . (union [(> c 0) "banana"] [else "cat"])) )
+
+; Scenario 15: Updating rhash With Symbolic Union Key-Concrete Value Pair
+;              When rhash Has Symbolic Constant Key
+r -> #rhash( (b . "apple") )
+k -> (ite (> c 0) 2 3)
+v -> "banana"
+(rhash-set! r k v) -> #rhash( (b . (union [(|| (&& (= b 2) (> c 0))
+                                               (&& (= b 3) (! (> c 0)))) "banana"]
+                                          [else "apple"]))
+                              (2 . (union [(> c 0) "banana"] [else rvoid]))
+                              (3 . (union [(! (> c 0)) "banana"] [else rvoid])) )
+
+; Scenario 16: Updating rhash With Symbolic Union Key-Symbolic Union Value Pair
+;              When rhash Has Symbolic Constant Key
+r -> #rhash( (b . "apple") )
+k -> (ite (> c 0) 2 3)
+v -> (union [(> d 0) "banana"] [else "cat"])
+(rhash-set! r k v) -> #rhash( (b . (union [(|| (&& (= b 2) (> c 0) (> d 0)) 
+                                               (&& (= b 3) (! (> c 0)) (> d 0))) "banana"]
+                                          [(|| (&& (= b 2) (> c 0) (! (> d 0)))
+                                               (&& (= b 3) (! (> c 0)) (! (> d 0)))) "cat"]
+                                          [else "apple"]))
+                              (2 . (union [(&& (> c 0) (> d 0)) "banana"]
+                                          [(&& (> c 0) (! (> d 0))) "cat"]
+                                          [else rvoid]))
+                              (3 . (union [(&& (! (> c 0)) (> d 0)) "banana"]
+                                          [(&& (! (> c 0)) (! (> d 0))) "cat"]
+                                          [else rvoid])) )
+```
+
+### Symbolic Structs
+
+```lisp
+
 ```
 
 ### Other 'Trivial' Scenarios
 
-Having `ite` keys is similar to symbolic unions and I believe they behave the same way, so I will not repeat them.  
+Having `ite` keys is similar to symbolic `union`s and I believe they behave the same way, so I will not repeat them.  
 
 Having symbolic constants as the value is similar to concrete constants as values. If they are referenced using
 `rhash-ref`, then the symbolic constant will just be returned
