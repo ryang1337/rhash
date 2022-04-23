@@ -67,7 +67,7 @@ r -> #rhash( ((ite (> b 0) 2 3) . "apple") )
 k -> c
 (rhash-ref r k) -> (union [(|| (&& (= c 2) (> b 0)) (&& (= c 3) (! (> b 0)))) "apple"] [else rvoid])
 
-; Scenario 10: Querying a Symbolic Union Key and Symbolic Union Value
+; Scenario 10: Querying a Symbolic Union Key and Concrete Value
 ;              When rhash Has Symbolic Constant
 r -> #rhash( (b . 5) )
 k -> (ite (> b 0) 2 3)
@@ -76,6 +76,12 @@ k -> (ite (> b 0) 2 3)
 r -> #rhash( (b . 5) )
 k -> (ite (> b 0) -1 3)
 (rhash-ref r k) -> rvoid
+
+; Scenario 11: Querying a Symbolic Union Key with Symbolic Constant Evaluation and Concrete Value
+;.             When rhash Has Symbolic Constant
+r -> #rhash( (b . 5) )
+k -> (union [(> b 0) c] [else d])
+(rhash-ref r k) -> (union)
 ```
 
 ### Other 'Trivial' Scenarios
