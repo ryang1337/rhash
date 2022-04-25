@@ -85,6 +85,11 @@ r -> #rhash( (b . 2) )
 k -> b
 (rhash-ref r k) -> 2
 
+; Scenario 9.5: Querying a Concrete Key
+r -> #rhash ( (b . 2) )
+k -> 4
+(rhash-ref r k) -> (ite (= b 4) 2 rvoid)
+
 ; Scenario 10: Querying a Symbolic Constant Key and Concrete Value
 ;             When rhash Has Symbolic Union Key
 r -> #rhash( ((ite (> b 0) 2 3) . "apple") )
