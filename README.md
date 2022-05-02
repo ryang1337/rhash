@@ -80,15 +80,35 @@ k -> (define-symbolic b integer?)
 v -> 2
 (rhash-set! r k v) -> #rhash( (b . 2) )
 
+; Scenario 8.1: Inserting a Symbolic Constant Key and Concrete Value
+;               When rhash Has Symbolic Constant Key
+r -> #rhash( (b . 2) )
+k -> (define-symbolic c integer?)
+v - > 3
+(rhash-set! r k v) -> #rhash( (b . (ite (= c b) 3 2))
+                               (c . 3) )
+
 ; Scenario 9: Querying a Symbolic Constant Key and Concrete Value
 r -> #rhash( (b . 2) )
 k -> b
 (rhash-ref r k) -> 2
 
-; Scenario 9.5: Querying a Concrete Key
+; Scenario 9.1: Querying a Concrete Key
 r -> #rhash ( (b . 2) )
 k -> 4
 (rhash-ref r k) -> (ite (= b 4) 2 rvoid)
+
+; Scenario 9.2: Querying a Concrete Key
+;               When rhash Has Multiple Symbolic Constant Keys
+; NOTE: The symbolic constant keys that are entered in first will ALWAYS
+;       have symbolic union keys conditioned on symbolic constant keys entered
+;       in later
+r -> #rhash( (b . (ite (= c b) 3 2))
+             (c . 3) )
+k1 -> b
+k2 -> 2
+(rhash-ref r k1) -> (ite (= b c) 3 2)
+(rhash-ref r k2) -> (ite (= b 2) (ite (= b c) 3 2) rvoid)
 
 ; Scenario 10: Querying a Symbolic Constant Key and Concrete Value
 ;             When rhash Has Symbolic Union Key
@@ -159,6 +179,18 @@ v -> (union [(> d 0) "banana"] [else "cat"])
                               (3 . (union [(&& (! (> c 0)) (> d 0)) "banana"]
                                           [(&& (! (> c 0)) (! (> d 0))) "cat"]
                                           [else rvoid])) )
+
+; Scenario 17: Upadting rhash With Symbolic Constant-Concrete Value Pari
+;              When rhash Has Symbolic Union Key
+r -> #rhash( ((ite (> b 0) 2 3) . "apple") )
+; equivalent to
+; r -> #rhash( (2 . (union [(> b 0) "apple"] [else rvoid])
+;              (3 . (union [(! (> b 0)) "apple"] [else rvoid]) )
+k -> c
+v -> "banana"
+(rhash-set! r k v) -> #rhash( (2 . (union [(= c 2) "banana"] [else (union [(> b 0) “apple”] [else rvoid])]))
+                              (3 . (union [(= c 3) "banana"] [else (union [(! (> b 0)) “apple”] [else rvoid])]))
+                              (c . "banana") )
 ```
 
 ### Symbolic Structs
