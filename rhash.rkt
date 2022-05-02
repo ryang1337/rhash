@@ -25,7 +25,7 @@
 )
 
 ; cap - capacity, iv - initial value, ev - empty value, k2i - key to index map, vvec - value vector
-(struct zhash (cap iv ev k2i vvec symconstvec) #:mutable #:transparent #:reflection-name 'zhash)
+(struct zhash (cap iv ev k2i vvec symtermvec) #:mutable #:transparent #:reflection-name 'zhash)
 ; by default, k2i is an empty hash, vvec is a vector of default value ev
 (define (make-zhash cap #:iv [iv zvoid] #:ev [ev zvoid]) (zhash cap iv ev (make-hash) (make-vector cap iv) (list)))
 (define (zhash-keys arg-zhash) (zhash-k2i arg-zhash))
@@ -166,15 +166,29 @@
             [(decomposible? arg-key) (for/all ([dkey ex-key #:exhaustive]) (exhaustive-set! dkey))]
             [else
                 (let* ([k2i (zhash-k2i arg-zhash)]
-                       [ind (hash-ref k2i ex-key)])
+                       [ind (hash-ref k2i ex-key)]
+                       [stvec (zhash-symtermvec arg-zhash)])
                     (zhash-val-set! arg-zhash ind arg-val)
-                    (when (term? ex-key)
-                          (define (conditional_update old-key)
+                    (cond 
+                        [(term? ex-key)
+                            (set-zhash-symtermvec! arg-zhash (append stvec (list ex-key)))
+                            (define (key-update old-key)
                                 (when (= ex-key old-key)
                                     (zhash-val-set! arg-zhash (hash-ref k2i old-key) arg-val)
                                 )
-                          )
-                          (for-each conditional_update prev-hash-keys)
+                            )
+                            (for-each key-update prev-hash-keys)
+                        ]
+                        ; ex-key in this branch should be a constant
+                        [else
+                            (define (conditional-key-update old-key)
+                                (when (&& (term? old-key) (= ex-key old-key))
+                                    (zhash-val-set! arg-zhash (hash-ref k2i old-key) arg-val)
+                                )
+                            )
+                            (for-each conditional-key-update prev-hash-keys)
+                        ]
+                                    
                     )
                 )
             ]
