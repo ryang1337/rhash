@@ -142,11 +142,34 @@
 ; (note) if the key doesn't exist, the path will authmatically be cut by rosette, which is expected
 (define (zhash-ref arg-zhash arg-key)
     (cond
-        [(symbolic? arg-key) (for/all ([dkey arg-key #:exhaustive]) (zhash-ref arg-zhash dkey))]
+        [(decomposible? arg-key) (for/all ([dkey arg-key #:exhaustive]) (zhash-ref arg-zhash dkey))]
         [else 
             (let ([vvec (zhash-vvec arg-zhash)]
-                  [k2i (zhash-k2i arg-zhash)])
-                (vector-ref vvec (hash-ref k2i arg-key))
+                  [k2i (zhash-k2i arg-zhash)]
+                  [stvec (zhash-symtermvec arg-zhash)])
+                (cond
+                    [(term? arg-key)
+                        (vector-ref vvec (hash-ref k2i arg-key))
+                    ]
+                    ; arg-key in this branch should be a constant
+                    [else
+                        (if (hash-has-key? k2i arg-key)
+                            (vector-ref vvec (hash-ref k2i arg-key))
+                            (cond
+                                [(not (null? stvec))
+                                    (define sym-key (car stvec))
+                                    (if (= sym-key arg-key)
+                                        (vector-ref vvec (hash-ref k2i sym-key))
+                                        zvoid
+                                    )
+                                ]
+                                ; arg-key is a constant, is not in the hash table, and there
+                                ; also exist no symbolic constants keys in the hash table
+                                [else zvoid]
+                            )
+                        )
+                    ]
+                )
             )
         ]
     )
