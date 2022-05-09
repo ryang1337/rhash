@@ -2,6 +2,7 @@
 (provide (except-out (all-defined-out)
     println-and-exit
 ))
+(error-print-width 1000000)
 
 ; forewords (some clarifications for reference)
 ; 1. a term is a symbolic
@@ -123,7 +124,7 @@
 ; make sure arg-key exists in key-index-map
 ; if not, add it
 (define (zhash-secure-key! arg-zhash arg-key)
-    ; (printf "# securing key: ~a\n" arg-key)
+    (printf "# securing key: ~a\n" arg-key)
     (cond
         [(decomposible? arg-key) (for/all ([dkey arg-key #:exhaustive]) (zhash-secure-key! arg-zhash dkey))]
         [else
@@ -148,20 +149,55 @@
                   [k2i (zhash-k2i arg-zhash)]
                   [stvec (zhash-symtermvec arg-zhash)])
                 (cond
+                    ; if arg-key is a sym term, check if it exists in the hash
+                    ; if it does, then return its mapping
+                    ; if it doesn't, return a union where arg-key is set equal to every key in the hash
                     [(term? arg-key)
-                        (vector-ref vvec (hash-ref k2i arg-key))
+                        (cond
+                            [(hash-has-key? k2i arg-key)
+                                (vector-ref vvec (hash-ref k2i arg-key))
+                            ]
+                            [else
+                                (define (compare-keys keys)
+                                    (cond
+                                        [(not (null? keys))
+                                            (define key (car keys))
+                                            (if (= key arg-key)
+                                                (vector-ref vvec (hash-ref k2i key))
+                                                (compare-keys (cdr keys))
+                                            )
+                                        ]
+                                        [else zvoid]
+                                    )
+                                )
+                                (compare-keys (hash-keys k2i))
+                            ]
+                        )
                     ]
                     ; arg-key in this branch should be a constant
+                    ; check if arg-key exists in the hash
+                    ; if it does, then return its mapping
+                    ; if not, check if there are sym terms in the symtermvec
+                        ; if so, return a union where every sym term in the vec is set equal to the arg-key
+                        ; if not, then return zvoid, as arg-key can never exist in the hash
                     [else
                         (if (hash-has-key? k2i arg-key)
                             (vector-ref vvec (hash-ref k2i arg-key))
                             (cond
                                 [(not (null? stvec))
-                                    (define sym-key (car stvec))
-                                    (if (= sym-key arg-key)
-                                        (vector-ref vvec (hash-ref k2i sym-key))
-                                        zvoid
+                                    (define (compare-keys sym-key-vec)
+                                        (cond
+                                            [(not (null? sym-key-vec))
+                                                (define sym-key (car sym-key-vec))
+                                                (if (= sym-key arg-key)
+                                                    (vector-ref vvec (hash-ref k2i sym-key))
+                                                    (compare-keys (cdr sym-key-vec))
+                                                )
+                                            ]
+                                            [else zvoid]
+                                        )
                                     )
+                                    (compare-keys stvec)
                                 ]
                                 ; arg-key is a constant, is not in the hash table, and there
                                 ; also exist no symbolic constants keys in the hash table
@@ -178,9 +214,10 @@
 ; (note) if the key doesn't exist, the path will authmatically be cut by rosette, which is expected
 ; this returns a copy of a newly set val-list
 (define (zhash-set! arg-zhash arg-key arg-val)
+    (define prev-hash-keys (hash-keys (zhash-k2i arg-zhash)))
+
     ; first secure all the keys
     ; this will update val-list to make sure of sufficient slots before actual filling of values
-    (define prev-hash-keys (hash-keys (zhash-k2i arg-zhash)))
     (zhash-secure-key! arg-zhash arg-key)
     ; then set the value
 
@@ -218,15 +255,18 @@
         )
     )
 
+    (display "hello")
     (exhaustive-set! arg-key)
 
 )
 
 (define (zhash-clear! arg-zhash)
     (hash-clear! (zhash-k2i arg-zhash))
-    (vector-fill! (zhash-vvec arg-zhash) zvoid))
+    (vector-fill! (zhash-vvec arg-zhash) zvoid)
+    (set-zhash-symtermvec! arg-zhash (list))
+)
 
 (define z (make-zhash 10))
-;(define l (list 1 2 3 4))
+(define l (list "apple" "banana"))
 (define-symbolic b c integer?)
-;(define k (list-ref l b))
+(define k (list-ref l b))
