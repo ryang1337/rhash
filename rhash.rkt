@@ -102,20 +102,55 @@
 ; if the corresponding value of this key is zvoid, it means the key is **factually** non-existent
 (define (zhash-has-key? arg-zhash arg-key)
     (cond
-        [(symbolic? arg-key) (for/all ([dkey arg-key #:exhaustive]) (zhash-has-key? arg-zhash dkey))]
+        [(decomposible? arg-key) (for/all ([dkey arg-key #:exhaustive]) (zhash-has-key? arg-zhash dkey))]
         [else
-            (if (zhash-key-exists? arg-zhash arg-key)
-                ; key exists in the key-index-map, check whether it's zvoid/empty-val
-                (let ([vvec (zhash-vvec arg-zhash)]
-                      [k2i (zhash-k2i arg-zhash)]
-                      [ev (zhash-ev arg-zhash)])
-                    (if (equal? ev (vector-ref vvec (hash-ref k2i arg-key)))
-                        #f ; zvoid/ev will be treated as key doesn't exist
-                        #t ; otherwise the key exists
-                    )
+            (let ([vvec (zhash-vvec arg-zhash)]
+                  [k2i (zhash-k2i arg-zhash)]
+                  [ev (zhash-ev arg-zhash)]
+                  [stvec (zhash-symtermvec arg-zhash)])
+                (cond
+                    [(zhash-key-exists? arg-zhash arg-key)
+                        (if (equal? ev (vector-ref vvec (hash-ref k2i arg-key)))
+                            #f ; zvoid/ev will be treated as key doesn't exist
+                            #t ; otherwise the key exists
+                        )
+                    ]
+                    [else
+                        (cond
+                            [(term? arg-key)
+                                (define (check-keys keys)
+                                    (cond
+                                        [(not (null? keys))
+                                            (define key (car keys))
+                                            (if (eq? key arg-key)
+                                                #t
+                                                (or #f (check-keys (cdr keys)))
+                                            )
+                                        ]
+                                        [else #f]
+                                    )
+                                )
+                                (check-keys (hash-keys k2i))
+                            ]
+                            [else
+                                (define (check-keys sym-key-vec)
+                                    (cond
+                                        [(not (null? sym-key-vec))
+                                            (define sym-key (car sym-key-vec))
+                                            (if (eq? sym-key arg-key)
+                                                #t
+                                                (or #f (check-keys (cdr sym-key-vec)))
+                                            )
+                                        ]
+                                        [else #f]
+                                    )
+                                )
+                                (define stvec (zhash-symtermvec arg-zhash))
+                                (check-keys stvec)
+                            ]
+                        )
+                    ]
                 )
-                ; key doesn't exist in the key-index-map, directly return #f
-                #f
             )
         ]
     )
