@@ -238,8 +238,7 @@ Having symbolic constants as the value is similar to concrete constants as value
 ## Current Issues and Potential Solutions
 
 1. Issue: Cannot create key to be a symbolic constant  
-    Solution: Currently testing solutions, possibly use auxilliary data structure to keep track of only symbolic
-    constants
+    SOLVED
 
 2. Issue: Cannot create key to be struct containing symbolic fields   
     Solution: Leverage the `decomposible?` function to check if key is struct containing symbolic field, then go from
@@ -251,3 +250,8 @@ Having symbolic constants as the value is similar to concrete constants as value
 
 4. Issue: Updating the same symbolic key multiple times results in long verification conditions   
     Solution: Currently ignoring
+
+5. Issue: Symbolic terms that evaluate to the same value are treated as different keys in the hash. e.g. (+ b (+ d c))
+   evaluates to (+ b (+ c d)), but (+ c (+ d b)) evaluates to (+ c (+ b d)). These will be treated as two different keys
+   in the hash while we want them to be treated as the same key.  
+    Solution: Find a way to normalize all symbolic terms
