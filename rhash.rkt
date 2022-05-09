@@ -124,7 +124,7 @@
 ; make sure arg-key exists in key-index-map
 ; if not, add it
 (define (zhash-secure-key! arg-zhash arg-key)
-    (printf "# securing key: ~a\n" arg-key)
+    ;(printf "# securing key: ~a\n" arg-key)
     (cond
         [(decomposible? arg-key) (for/all ([dkey arg-key #:exhaustive]) (zhash-secure-key! arg-zhash dkey))]
         [else
@@ -162,7 +162,7 @@
                                     (cond
                                         [(not (null? keys))
                                             (define key (car keys))
-                                            (if (= key arg-key)
+                                            (if (eq? key arg-key)
                                                 (vector-ref vvec (hash-ref k2i key))
                                                 (compare-keys (cdr keys))
                                             )
@@ -189,7 +189,7 @@
                                         (cond
                                             [(not (null? sym-key-vec))
                                                 (define sym-key (car sym-key-vec))
-                                                (if (= sym-key arg-key)
+                                                (if (eq? sym-key arg-key)
                                                     (vector-ref vvec (hash-ref k2i sym-key))
                                                     (compare-keys (cdr sym-key-vec))
                                                 )
@@ -223,7 +223,7 @@
 
     (define (exhaustive-set! ex-key)
         (cond
-            [(decomposible? arg-key) (for/all ([dkey ex-key #:exhaustive]) (exhaustive-set! dkey))]
+            [(decomposible? ex-key) (for/all ([dkey ex-key #:exhaustive]) (exhaustive-set! dkey))]
             [else
                 (let* ([k2i (zhash-k2i arg-zhash)]
                        [ind (hash-ref k2i ex-key)]
@@ -233,7 +233,7 @@
                         [(term? ex-key)
                             (set-zhash-symtermvec! arg-zhash (append stvec (list ex-key)))
                             (define (key-update old-key)
-                                (when (= ex-key old-key)
+                                (when (eq? ex-key old-key)
                                     (zhash-val-set! arg-zhash (hash-ref k2i old-key) arg-val)
                                 )
                             )
@@ -242,20 +242,18 @@
                         ; ex-key in this branch should be a constant
                         [else
                             (define (conditional-key-update old-key)
-                                (when (&& (term? old-key) (= ex-key old-key))
+                                (when (&& (term? old-key) (eq? ex-key old-key))
                                     (zhash-val-set! arg-zhash (hash-ref k2i old-key) arg-val)
                                 )
                             )
                             (for-each conditional-key-update prev-hash-keys)
                         ]
-                                    
                     )
                 )
             ]
         )
     )
 
-    (display "hello")
     (exhaustive-set! arg-key)
 
 )
