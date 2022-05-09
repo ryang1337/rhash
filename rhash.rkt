@@ -156,6 +156,21 @@
     )
 )
 
+(define (zhash-expand! arg-zhash)
+    (let ([cap (zhash-cap arg-zhash)]
+          [ev (zhash-ev arg-zhash)]
+          [vvec (zhash-vvec arg-zhash)])
+        (set-zhash-cap! arg-zhash (* 2 cap)) ; how much to extend? should there be a better formula?
+        (define (extend-vector i)
+            (if (< i (vector-length vvec))
+                (vector-ref vvec i)
+                ev
+            )
+        )
+        (set-zhash-vvec! arg-zhash (build-vector (zhash-cap arg-zhash) extend-vector))
+    )
+)
+
 ; make sure arg-key exists in key-index-map
 ; if not, add it
 (define (zhash-secure-key! arg-zhash arg-key)
@@ -166,7 +181,8 @@
             (when (not (zhash-key-exists? arg-zhash arg-key))
                 (let ([k2i (zhash-k2i arg-zhash)])
                     (when (>= (hash-count k2i) (zhash-cap arg-zhash)) 
-                        (println-and-exit (format "# [zhash-panic] zhash-secure-key!: zhash capacity exceeded, max is ~a, now is ~a" (zhash-cap arg-zhash) (hash-count k2i))))
+                        (zhash-expand! arg-zhash))
+                        ;(println-and-exit (format "# [zhash-panic] zhash-secure-key!: zhash capacity exceeded, max is ~a, now is ~a" (zhash-cap arg-zhash) (hash-count k2i))))
                     ; (fixme) you probably want to temporarily clear the vc here
                     (hash-set! k2i arg-key (hash-count k2i)) ; add the key to the key-index-map
                 )
